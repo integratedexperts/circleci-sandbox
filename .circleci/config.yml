@@ -1,0 +1,17 @@
+version: 2
+aliases:
+
+  - &container_config
+    working_directory: &working_directory ~/project
+    docker:
+      - image: drevops/ci-builder
+        environment:
+          VOLUMES_MOUNTED: 0
+
+jobs:
+  build:
+    <<: *container_config
+    steps:
+      - attach_workspace:
+          at: /workspace
+      - checkout
