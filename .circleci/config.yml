@@ -7,11 +7,52 @@ aliases:
       - image: drevops/ci-builder
         environment:
           VOLUMES_MOUNTED: 0
+          DB_CACHE_TIMESTAMP: +%Y_%m_%d_%H_%M
 
 jobs:
+  database: &job_database
+    <<: *container_config
+    steps:
+      - attach_workspace:
+          at: /workspace
+      - checkout
+      - run:
+          name: Set cache keys for database caching
+          command: |
+            echo "${CI_WORKFLOW_NAME:-main}" > /tmp/DB_CACHE_WORKFLOW_NAME && cat /tmp/DB_CACHE_WORKFLOW_NAME
+            echo "$(date ${DB_CACHE_TIMESTAMP})" > /tmp/DB_CACHE_TIMESTAMP && cat /tmp/DB_CACHE_TIMESTAMP
+            echo "${DB_CACHE_NIGHTLY_BRANCH}" > /tmp/DB_CACHE_BRANCH && cat /tmp/DB_CACHE_NIGHTLY_BRANCH
+            echo "${DB_CACHE_FALLBACK/no/${CIRCLE_BUILD_NUM}}" > /tmp/DB_CACHE_FALLBACK && cat /tmp/DB_CACHE_FALLBACK
+      - restore_cache:
+          keys:
+            - v1-db7-master-
+      - run: |
+          mkdir -p .data
+          touch .data/file1.txt
+      - save_cache:
+          key: v1-db7-master-
+          paths:
+            - .data
+
+
   build:
     <<: *container_config
     steps:
       - attach_workspace:
           at: /workspace
       - checkout
+      - run:
+          name: Set cache keys for database caching
+          command: |
+            echo "${CI_WORKFLOW_NAME:-main}" > /tmp/DB_CACHE_WORKFLOW_NAME && cat /tmp/DB_CACHE_WORKFLOW_NAME
+      - restore_cache:
+          keys:
+            - v1-db7-master-
+            #
+            # Use cached artifacts from previous builds of this branch ran at
+            # any time, but try to find caches withing the same workflow first.
+            # https://circleci.com/docs/2.0/caching/#restoring-cache
+            #- v1-db7-{{ .Branch }}-{{ checksum "/tmp/DB_CACHE_WORKFLOW_NAME" }}
+            #- v1-db7-{{ .Branch }}-
+
+      - run: test -f .data/file1.txt
