@@ -56,3 +56,14 @@ jobs:
             #- v1-db7-{{ .Branch }}-
 
       - run: test -f .data/file1.txt
+
+workflows:
+  version: 2
+  #
+  # Main workflow. Runs for every push to the remote repository.
+  main:
+    jobs:
+      - database
+      - build:
+          requires:
+            - database
